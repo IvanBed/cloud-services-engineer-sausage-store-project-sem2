@@ -48,7 +48,7 @@ jobs:
             # Для каждого пересобранного образа 
             # устанавливаем тег latest, чтобы потом
             # на сервере и в docker-compose.yml не указывать версию образа:
-            tags: YOUR_DOCKERHUB/sausage-backend:latest
+            tags: ${{ secrets.DOCKER_USER }}/sausage-backend:latest
             build-args: |
               VERSION=${{ github.sha }}
         - name: Push Frontend to DockerHub
@@ -56,13 +56,13 @@ jobs:
           with:
             context: ./frontend/
             push: true
-            tags: YOUR_DOCKERHUB/sausage-frontend:latest
+            tags: ${{ secrets.DOCKER_USER }}/sausage-frontend:latest
         - name: Push Backend-report to DockerHub
           uses: docker/build-push-action@v4
           with:
             context: ./backend-report/
             push: true
-            tags: YOUR_DOCKERHUB/sausage-backend-report:latest
+            tags: ${{ secrets.DOCKER_USER }}/sausage-backend-report:latest
   # Упаковываем helm-чарт и пушим его в Nexus
   add_helm_chart_to_nexus:
       name: Add Helm Chart To Nexus
@@ -87,7 +87,7 @@ jobs:
             helm plugin install https://github.com/chartmuseum/helm-push
             helm repo add chartmuseum ${{ secrets.NEXUS_HELM_REPO }} --username ${{ secrets.NEXUS_HELM_REPO_USER }} --password ${{ secrets.NEXUS_HELM_REPO_PASSWORD }}
             cd sausage-store-chart
-            helm cm-push . chartmuseum --context-path="/repository/ivanbed-sausage-store"
+            helm cm-push . chartmuseum --context-path="/repository/ivanbed-sausage-store/"
 
   # Деплоим приложения в кластер Kubernetes с помощью helm-чарт
   deploy_helm_chart_to_kubernetes:
@@ -105,12 +105,12 @@ jobs:
           run: |
             helm repo add chartmuseum ${{ secrets.NEXUS_HELM_REPO }} --username ${{ secrets.NEXUS_HELM_REPO_USER }} --password ${{ secrets.NEXUS_HELM_REPO_PASSWORD }}
             helm repo update
-            echo "$KUBE_CONFIG" > kubeconfig
+            echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig
             chmod 600 kubeconfig
             helm upgrade --install sausage-store chartmuseum/sausage-store \
               --history-max 3 \
               --kubeconfig ./kubeconfig \
-              --namespace '${{ secrets.SAUSAGE_STORE_NAMESPACE }}' \
+              --namespace '${{ secrets.KUBE_NAMESPACE }}' \
               --set-string backend.image_tag="latest" \
               --set-string frontend.image_tag="latest" \
               --set-string backend-report.image_tag="latest"
