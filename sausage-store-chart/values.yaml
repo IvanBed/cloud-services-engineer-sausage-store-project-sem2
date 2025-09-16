@@ -18,6 +18,7 @@ frontend:
     host: front-ivanbedaev.2sem.students-projects.ru # Корректный домен будет указан в задании
     path: /
     pathType: Prefix
+    tlsSecretName: 2sem-students-projects-wildcard-secret
   containerPort: 80
   image: ivanbed/sausage-frontend:latest #Добавить мой Docker
   resources:
