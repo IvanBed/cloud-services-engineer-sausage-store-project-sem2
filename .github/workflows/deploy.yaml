@@ -9,9 +9,9 @@ env:
   NEXUS_HELM_REPO: ${{ secrets.NEXUS_HELM_REPO }}
   NEXUS_HELM_REPO_USER: ${{ secrets.NEXUS_HELM_REPO_USER }}
   NEXUS_HELM_REPO_PASSWORD: ${{ secrets.NEXUS_HELM_REPO_PASSWORD }}
-  SAUSAGE_STORE_NAMESPACE: YOUR_NAMESPACE
+  SAUSAGE_STORE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
   KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-  VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+ 
 
 jobs:
   # Сборка и пуш образов в докерхаб:
@@ -70,7 +70,24 @@ jobs:
       needs: build_and_push_to_docker_hub
 
       steps:
-      #### Опишите необходимые шаги
+        - name: Check out the repo
+          # Получение исходного кода из репозитория:
+          uses: actions/checkout@v3
+
+        - name: Install Helm
+          uses: azure/setup-helm@v1
+          with:
+            version: v3.4.0
+
+        - name: Helm Lint
+          run: helm lint ./sausage-store-chart
+
+        - name: Add nexus repo and push helm-chart
+          run: |
+            helm plugin install https://github.com/chartmuseum/helm-push
+            helm repo add chartmuseum ${{ secrets.NEXUS_HELM_REPO }} --username ${{ secrets.NEXUS_HELM_REPO_USER }} --password ${{ secrets.NEXUS_HELM_REPO_PASSWORD }}
+            cd sausage-store-chart
+            helm cm-push . chartmuseum --context-path="/repository/ivanbed-sausage-store"
 
   # Деплоим приложения в кластер Kubernetes с помощью helm-чарт
   deploy_helm_chart_to_kubernetes:
@@ -79,4 +96,22 @@ jobs:
       needs: add_helm_chart_to_nexus
 
       steps:
-      #### Опишите необходимые шаги
+        - name: Install Helm
+          uses: azure/setup-helm@v1
+          with:
+            version: v3.4.0
+        
+        - name: Add helm repo
+          run: |
+            helm repo add chartmuseum ${{ secrets.NEXUS_HELM_REPO }} --username ${{ secrets.NEXUS_HELM_REPO_USER }} --password ${{ secrets.NEXUS_HELM_REPO_PASSWORD }}
+            helm repo update
+            echo "$KUBE_CONFIG" > kubeconfig
+            chmod 600 kubeconfig
+            helm upgrade --install sausage-store chartmuseum/sausage-store \
+              --history-max 3 \
+              --kubeconfig ./kubeconfig \
+              --namespace '${{ secrets.SAUSAGE_STORE_NAMESPACE }}' \
+              --set-string backend.image_tag="latest" \
+              --set-string frontend.image_tag="latest" \
+              --set-string backend-report.image_tag="latest"
+            rm -rf kubeconfig
