@@ -15,11 +15,11 @@ frontend:
   service:
     port: 80
   ingress:
-    host: YOUR_STUDENT_HOSTNAME.students-projects.ru # Корректный домен будет указан в задании
+    host: front-ivanbedaev.2sem.students-projects.ru # Корректный домен будет указан в задании
     path: /
     pathType: Prefix
   containerPort: 80
-  image: YOUR_DOCKERHUB/sausage-frontend:latest
+  image: ivanbed/sausage-frontend:latest #Добавить мой Docker
   resources:
     requests:
       memory: "128Mi"
@@ -45,8 +45,11 @@ backend:
   revisionHistoryLimit: 15
   replicas: 1
   strategy:
-  ### Опишите стратегию RollingUpdate для бэкенда
-  image: YOUR_DOCKERHUB/sausage-backend:latest
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  image: ivanbed/sausage-backend:latest   
   imagePullPolicy: Always
   resources:
     requests:
@@ -57,20 +60,66 @@ backend:
       cpu: "1"
   containerPort: 8080
   livenessProbe:
-  ### Опишите LivenessProbe для бэкенда
+    httpGet:
+      path: /actuator/health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    failureThreshold: 3
+    successThreshold: 1
+    timeoutSeconds: 2
   vpa:
-  ### Опишите VPA для бэкенда
+    enabled: true
+    updatePolicy:
+      updateMode: "Off"
+    resourcePolicy:
+      containerPolicies:
+        - containerName: "*"
+          minAllowed:
+            cpu: "100m"
+            memory: "256Mi"
+          maxAllowed:
+            cpu: "1"
+            memory: "512Mi"
 
 backend-report:
-### Опишите значения для backend-report
-### Приложение должно использовать стратегию Recreate
-### Приложение использует переменную PORT - порт, на котором оно запустится и DB - Uri-подключение к mongodb. 
-### DB положите в Secret, PORT в ConfigMap
-### Опишите HPA для backend-report
+  strategy:
+    type: Recreate
+  image: ivanbed/sausage-backend-report:latest
+  imagePullPolicy: Always
+  containerPort: 8081
+  config:
+    port: "8081"
+  secret:
+    db: "mongodb://root:rootpassword@mongodb:27017"
+  service:
+    type: ClusterIP
+    port: 8081
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 75
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
 
 infra:
   postgresql:
-  ### Опишите необходимые переменные для развертывания PostgresQL в кластере Kubernetes
+    auth:
+      username: store
+      password: storepassword
+      database: sausage-store
+    primary:
+      persistence:
+        enabled: true
+        size: 2Gi
+    architecture: standalone
+    containerPort: 5432
   mongodb:
     env:
       MONGO_INITDB_ROOT_USERNAME: root
