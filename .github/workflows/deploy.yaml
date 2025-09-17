@@ -101,15 +101,28 @@ jobs:
           echo "Updating chart version: $CURRENT → $NEXT"
           sed -i "s/^version: .*/version: $NEXT/" "$CHART_PATH"
           echo "NEW_VERSION=$NEXT" >> $GITHUB_OUTPUT
-
       - name: Package and Push Helm Chart to Nexus
         run: |
-          helm dependency update ./sausage-store-chart
-          helm package ./sausage-store-chart --destination ./packaged-chart
-          helm cm-push ./packaged-chart/sausage-store-*.tgz chartmuseum \
-            --username="${{ env.NEXUS_HELM_REPO_USER }}" \
-            --password="${{ env.NEXUS_HELM_REPO_PASSWORD }}" \
-            --context-path="/repository/ivanbed-sausage-store"
+          cd sausage-store-chart
+          helm dependency update
+          helm package . --destination ../packaged-chart
+          
+          CHART_FILE=$(ls ../packaged-chart/sausage-store-*.tgz | head -1)
+          echo "Uploading: $CHART_FILE"
+          
+          # ЗАМЕНИТЕ helm cm-push НА curl:
+          curl -u "${{ env.NEXUS_HELM_REPO_USER }}:${{ env.NEXUS_HELM_REPO_PASSWORD }}" \
+            -X POST \
+            -H "Content-Type: application/gzip" \
+            --data-binary "@$CHART_FILE" \
+            "${{ env.NEXUS_HELM_REPO }}" \
+            -f --verbose
+
+          # Проверка
+          curl -u "${{ env.NEXUS_HELM_REPO_USER }}:${{ env.NEXUS_HELM_REPO_PASSWORD }}" \
+            "${{ env.NEXUS_HELM_REPO }}/index.yaml" \
+            -f --silent | grep -q "sausage-store" && \
+            echo "✓ Success" || echo "✗ Failed"
 
   deploy_helm_chart_to_kubernetes:
     name: Deploy Helm Chart To Kubernetes
