@@ -137,7 +137,7 @@ jobs:
 
       - name: Deploy Helm Chart
         run: |
-          helm upgrade --install sausage-store chartmuseum/sausage-store-chart \
+          helm upgrade --install sausage-store chartmuseum/sausage-store \
             --version ${{ needs.add_helm_chart_to_nexus.outputs.chart_version }} \
             --namespace $SAUSAGE_STORE_NAMESPACE \
             --set-string backend.image_tag="latest" \
