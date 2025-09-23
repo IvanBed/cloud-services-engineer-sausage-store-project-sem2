@@ -1,0 +1,2 @@
+2025/09/23 11:03:31 No .env file could be found []
+2025/09/23 11:03:46 Error occurred during MongoDB connect: "server selection error: context deadline exceeded, current topology: { Type: Unknown, Servers: [{ Addr: mongodb:27017, Type: Unknown, Last error: connection() error occurred during connection handshake: dial tcp: lookup mongodb on 10.96.128.2:53: no such host }, ] }"
